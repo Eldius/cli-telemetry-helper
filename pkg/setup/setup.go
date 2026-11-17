@@ -59,3 +59,9 @@ func MainWrapper(ctx context.Context, svc Service, m func() error, opts ...Confi
 func PersistentPreRunE(cmd *cobra.Command, args []string) error {
 	return telemetry.PersistentPreRunE(cmd, args)
 }
+
+// PersistentPostRunE is a cobra hook that marks the span started by
+// PersistentPreRunE as successful and ends it.
+func PersistentPostRunE(cmd *cobra.Command, args []string) error {
+	return telemetry.PersistentPostRunE(cmd, args)
+}
