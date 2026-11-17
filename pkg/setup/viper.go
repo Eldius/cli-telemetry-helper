@@ -13,10 +13,14 @@ import (
 )
 
 var (
-	ErrEmptyAppName        = errors.New("empty service name")
+	// ErrEmptyAppName is returned by InitViper when the service name is empty.
+	ErrEmptyAppName = errors.New("empty service name")
+	// ErrViperInitialization wraps any failure to read the configuration file.
 	ErrViperInitialization = errors.New("viper initialization error")
 )
 
+// ConfigOptions customizes how InitViper locates and reads configuration.
+// Set fields through the With* option functions rather than directly.
 type ConfigOptions struct {
 	DefaultConfigs              map[string]any
 	ConfigFileLookupDirectories []string
@@ -26,6 +30,7 @@ type ConfigOptions struct {
 	ConfigFileType              string
 }
 
+// ConfigOption mutates ConfigOptions; constructed by the With* functions.
 type ConfigOption func(*ConfigOptions)
 
 // WithConfigFileLookupDirectories defines directories to lookup for
@@ -51,24 +56,34 @@ func WithEnvPrefix(prefix string) ConfigOption {
 	}
 }
 
+// WithConfigFile sets an explicit config file path, skipping directory lookup.
 func WithConfigFile(path string) ConfigOption {
 	return func(v *ConfigOptions) {
 		v.ConfigFile = path
 	}
 }
 
+// WithConfigFileName sets the config file name (without extension) searched
+// for in the lookup directories.
 func WithConfigFileName(name string) ConfigOption {
 	return func(v *ConfigOptions) {
 		v.ConfigFileName = name
 	}
 }
 
+// WithConfigFileType sets the config file format (e.g. "yaml", "json").
 func WithConfigFileType(t string) ConfigOption {
 	return func(v *ConfigOptions) {
 		v.ConfigFileType = t
 	}
 }
 
+// InitViper configures the global viper instance: it applies opts, enables
+// environment variable overrides (mapping "." in keys to "_" with the
+// configured prefix), and reads the config file. Unless WithConfigFile is
+// used, the file is searched in the WithConfigFileLookupDirectories
+// directories, then in ~/.<service-name>/ and ~/. It returns
+// ErrViperInitialization when no config file can be read.
 func InitViper(ctx context.Context, svc Service, opts ...ConfigOption) error {
 	cfg := ConfigOptions{}
 	for _, opt := range opts {

@@ -1,3 +1,5 @@
+// Package telemetry provides helpers to record errors and metrics on the
+// global OpenTelemetry providers.
 package telemetry
 
 import (

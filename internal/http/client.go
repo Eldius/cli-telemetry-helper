@@ -10,6 +10,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
+// NewHTTPClient returns an *http.Client whose transport is wrapped with
+// otelhttp tracing and debug-level request/response logging.
 func NewHTTPClient() *http.Client {
 	return &http.Client{
 		Transport: &loggingRoundTripper{
@@ -118,6 +120,8 @@ func extractResponseBody(res *http.Response) string {
 	return string(body)
 }
 
+// ExtractRequestBody reads req.Body fully, restores it so the request can
+// still be sent, and returns the body as a string.
 func ExtractRequestBody(req *http.Request) string {
 	if req.Body == nil {
 		return ""
@@ -131,6 +135,8 @@ func ExtractRequestBody(req *http.Request) string {
 	return string(body)
 }
 
+// HTTPRequestLogRecord is the structured record logged for each outgoing
+// HTTP request and its response.
 type HTTPRequestLogRecord struct {
 	Request  HTTPRequestData  `json:"request"`
 	Response HTTPResponseData `json:"response"`
@@ -140,11 +146,13 @@ type HTTPRequestLogRecord struct {
 	Method   string           `json:"method,omitempty"`
 }
 
+// HTTPRequestData holds the logged body and headers of an outgoing request.
 type HTTPRequestData struct {
 	Body    string              `json:"body,omitempty"`
 	Headers map[string][]string `json:"headers,omitempty"`
 }
 
+// HTTPResponseData holds the logged body, headers and status code of a response.
 type HTTPResponseData struct {
 	Headers    map[string][]string `json:"headers,omitempty"`
 	Body       string              `json:"body,omitempty"`

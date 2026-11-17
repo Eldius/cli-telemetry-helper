@@ -15,13 +15,24 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// Type aliases re-exporting the internal configuration types, so consumers
+// only need to import this package.
 type (
+	// TelemetryOptions holds the service identity and the per-signal
+	// backend configuration consumed by Setup.
 	TelemetryOptions = telemetry.Options
-	Backends         = telemetry.Backends
-	Service          = telemetry.Service
-	Backend          = telemetry.Backend
+	// Backends groups the traces, metrics and logs backend configurations.
+	Backends = telemetry.Backends
+	// Service identifies the instrumented application.
+	Service = telemetry.Service
+	// Backend configures a single OTLP/gRPC backend endpoint.
+	Backend = telemetry.Backend
 )
 
+// Setup initializes the OTLP/gRPC tracer, meter and logger providers for
+// every backend marked Enabled in cfg, registering them as the global OTel
+// providers. If any backend fails to initialize, the ones already started
+// are shut down before the error is returned.
 func Setup(ctx context.Context, cfg TelemetryOptions) (ShutdownFunc, error) {
 	backends := []struct {
 		enabled bool
@@ -56,6 +67,8 @@ func Setup(ctx context.Context, cfg TelemetryOptions) (ShutdownFunc, error) {
 	return shutdownAll, nil
 }
 
+// ShutdownFunc flushes pending telemetry and shuts down the initialized
+// providers. Call it before the process exits or buffered data is lost.
 type ShutdownFunc func()
 
 // CobraCmdExecute runs rootCmd wrapped in a root span and returns the

@@ -61,6 +61,9 @@ func setupBackend[P shutdowner, E any](
 	}, nil
 }
 
+// SetupTracer creates the OTLP/gRPC span exporter and TracerProvider, sets
+// the provider as global (with TraceContext+Baggage propagation), and returns
+// a function that flushes and shuts down the pipeline.
 func SetupTracer(ctx context.Context, cfg Options) (func(), error) {
 	return setupBackend(ctx, "traces", cfg.Backend.Traces, getDefaultResources(cfg),
 		func(ctx context.Context, b Backend) (*otlptrace.Exporter, error) {
@@ -89,6 +92,9 @@ func SetupTracer(ctx context.Context, cfg Options) (func(), error) {
 	)
 }
 
+// SetupMeter creates the OTLP/gRPC metrics exporter and MeterProvider, sets
+// the provider as global, and starts Go runtime metric collection. The
+// returned function flushes and shuts down the pipeline.
 func SetupMeter(ctx context.Context, cfg Options) (func(), error) {
 	shutdown, err := setupBackend(ctx, "metrics", cfg.Backend.Metrics, getDefaultResources(cfg),
 		func(ctx context.Context, b Backend) (*otlpmetricgrpc.Exporter, error) {
@@ -122,6 +128,9 @@ func SetupMeter(ctx context.Context, cfg Options) (func(), error) {
 	return shutdown, nil
 }
 
+// SetupLogger creates the OTLP/gRPC log exporter and LoggerProvider, sets
+// the provider as global, and replaces slog's default logger with an
+// OTel-bridged one. The returned function flushes and shuts down the pipeline.
 func SetupLogger(ctx context.Context, cfg Options) (func(), error) {
 	return setupBackend(ctx, "logs", cfg.Backend.Logs, getDefaultResources(cfg),
 		func(ctx context.Context, b Backend) (*otlploggrpc.Exporter, error) {

@@ -1,3 +1,4 @@
+// Package db provides OpenTelemetry-instrumented database connections.
 package db
 
 import (

@@ -1,3 +1,5 @@
+// Package setup wires viper configuration and OpenTelemetry providers for
+// cobra-based CLI applications.
 package setup
 
 import (
@@ -6,7 +8,9 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/eldius/cli-telemetry-helper/internal/telemetry"
 	"github.com/go-viper/mapstructure/v2"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -19,6 +23,11 @@ func expandEnvHook() mapstructure.DecodeHookFunc {
 	}
 }
 
+// MainWrapper initializes configuration and telemetry around a CLI's main
+// function: it runs InitViper, unmarshals "telemetry.backends" (expanding
+// ${ENV_VAR} references in string values), sets up the enabled OTel
+// providers, and invokes m. Providers are flushed and shut down after m
+// returns; any initialization failure aborts before m runs.
 func MainWrapper(ctx context.Context, svc Service, m func() error, opts ...ConfigOption) error {
 
 	if err := InitViper(ctx, svc, opts...); err != nil {
@@ -42,4 +51,11 @@ func MainWrapper(ctx context.Context, svc Service, m func() error, opts ...Confi
 	defer shutdown()
 
 	return m()
+}
+
+// PersistentPreRunE is a cobra hook that starts a span named after the
+// command and stores it in the command context. Pair it with
+// PersistentPostRunE on the same command to end the span.
+func PersistentPreRunE(cmd *cobra.Command, args []string) error {
+	return telemetry.PersistentPreRunE(cmd, args)
 }

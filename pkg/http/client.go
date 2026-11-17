@@ -1,3 +1,4 @@
+// Package http provides an OpenTelemetry-instrumented HTTP client.
 package http
 
 import (

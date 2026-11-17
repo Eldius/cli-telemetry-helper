@@ -15,6 +15,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// PersistentPreRunE is a cobra hook that starts a span named after the
+// command and stores it in the command context. Pair it with
+// PersistentPostRunE on the same command to end the span.
 func PersistentPreRunE(cmd *cobra.Command, args []string) error {
 	start := time.Now()
 
@@ -39,6 +42,8 @@ func PersistentPreRunE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// PersistentPostRunE is a cobra hook that marks the span started by
+// PersistentPreRunE as successful and ends it.
 func PersistentPostRunE(cmd *cobra.Command, args []string) error {
 	var isTracing bool
 	var runningTime time.Duration
