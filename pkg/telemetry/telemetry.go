@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	inttelemetry "github.com/eldius/cli-telemetry-helper/internal/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -25,7 +26,7 @@ func RecordErrorAndClose(ctx context.Context, err error, options ...trace.SpanEn
 
 // NewInt64CounterMeter returns a new Int64 counter meter
 func NewInt64CounterMeter(metricName string) metric.Int64Counter {
-	meterProvider := otel.GetMeterProvider().Meter("cli-telemetry-poc")
+	meterProvider := otel.GetMeterProvider().Meter(inttelemetry.InstrumentationName)
 	counter, err := meterProvider.Int64Counter(metricName)
 	if err != nil {
 		slog.With("error", err).Warn("Failed to create meter")

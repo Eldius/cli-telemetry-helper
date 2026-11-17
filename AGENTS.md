@@ -48,6 +48,6 @@ go build ./... && go vet ./...
 - `getDefaultResources` (internal/telemetry/span.go) caches the resource in a
   package global — the service name/version from the first `Setup` call wins for
   the process lifetime.
-- Instrumentation scope names are hardcoded (`"cli-telemetry-poc"`, `"main"`),
-  including a hardcoded `service.name="cli-telemetry-poc"` span attribute in
-  `CobraCmdExecute` that does not follow the configured service name.
+- All instrumentation scopes share one name, `telemetry.InstrumentationName`
+  (the module path, defined in internal/telemetry/telemetry.go); `service.name`
+  comes from the configured resource, not from span attributes.

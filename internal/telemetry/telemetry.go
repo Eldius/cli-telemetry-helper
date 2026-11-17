@@ -10,6 +10,10 @@ type tracingContextKey string
 
 const tracingKey tracingContextKey = "tracing"
 
+// InstrumentationName is the OpenTelemetry instrumentation scope name used
+// by all tracers, meters and loggers created by this module.
+const InstrumentationName = "github.com/eldius/cli-telemetry-helper"
+
 type tracingData struct {
 	span  trace.Span
 	start time.Time

@@ -6,8 +6,7 @@ import (
 	inthttp "github.com/eldius/cli-telemetry-helper/internal/http"
 )
 
-// NewHTTPClient returns a new instrumented
-// HTTP curseforge
+// NewHTTPClient returns a new instrumented HTTP client.
 func NewHTTPClient() *http.Client {
 	return inthttp.NewHTTPClient()
 }

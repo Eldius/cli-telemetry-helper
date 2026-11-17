@@ -37,7 +37,7 @@ func MainWrapper(ctx context.Context, svc Service, m func() error, opts ...Confi
 
 	shutdown, err := Setup(ctx, cfg)
 	if err != nil {
-		fmt.Printf("setup telemetry failed: %v\n", err)
+		return fmt.Errorf("setup telemetry: %w", err)
 	}
 	defer shutdown()
 

@@ -22,7 +22,7 @@ type (
 	Backend          = telemetry.Backend
 )
 
-func Setup(ctx context.Context, cfg TelemetryOptions) (ShutdowwnFunc, error) {
+func Setup(ctx context.Context, cfg TelemetryOptions) (ShutdownFunc, error) {
 	backends := []struct {
 		enabled bool
 		setup   func(context.Context, telemetry.Options) (func(), error)
@@ -56,13 +56,13 @@ func Setup(ctx context.Context, cfg TelemetryOptions) (ShutdowwnFunc, error) {
 	return shutdownAll, nil
 }
 
-type ShutdowwnFunc func()
+type ShutdownFunc func()
 
 // CobraCmdExecute runs rootCmd wrapped in a root span and returns the
 // process exit code. It never calls os.Exit, so the caller can flush
 // telemetry before terminating.
 func CobraCmdExecute(ctx context.Context, rootCmd *cobra.Command) int {
-	tracer := otel.GetTracerProvider().Tracer("cli-telemetry-poc")
+	tracer := otel.GetTracerProvider().Tracer(telemetry.InstrumentationName)
 	execName := filepath.Base(os.Args[0])
 	pid := os.Getpid()
 	spanCtx, span := tracer.Start(
@@ -76,7 +76,6 @@ func CobraCmdExecute(ctx context.Context, rootCmd *cobra.Command) int {
 			attribute.String("process.executable.path", os.Args[0]),
 			attribute.String("process.command", strings.Join(os.Args, " ")),
 			attribute.String("otel.span.parent.origin", "none"),
-			attribute.String("service.name", "cli-telemetry-poc"),
 		),
 	)
 	defer span.End()

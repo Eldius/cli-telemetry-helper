@@ -41,8 +41,8 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, er
 	log.With(
 		"http.url", logData.URL,
 		"http.method", logData.Method,
-		"http.request.headers", logData.Request.Headers,
-		"http.request.body", logData.Request.Body,
+		"http.request.headers", redactHeaders(logData.Request.Headers),
+		"http.request.body", truncateBody(logData.Request.Body),
 	).DebugContext(ctx, "HTTPRemoteRequestStarting")
 
 	start := time.Now()
@@ -66,15 +66,39 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, er
 	log.With(
 		"http.url", logData.URL,
 		"http.method", logData.Method,
-		"http.request.headers", logData.Request.Headers,
-		"http.request.body", logData.Request.Body,
-		"http.response.headers", logData.Response.Headers,
-		"http.response.body", logData.Response.Body,
+		"http.request.headers", redactHeaders(logData.Request.Headers),
+		"http.request.body", truncateBody(logData.Request.Body),
+		"http.response.headers", redactHeaders(logData.Response.Headers),
+		"http.response.body", truncateBody(logData.Response.Body),
 		"http.response.status_code", logData.Response.StatusCode,
 		"http.duration", logData.Duration,
 	).DebugContext(ctx, "HTTPRemoteRequestFinished")
 
 	return resp, nil
+}
+
+const maxLoggedBodyBytes = 4 * 1024
+
+// truncateBody caps the logged body size to avoid flooding the log backend.
+func truncateBody(body string) string {
+	if len(body) <= maxLoggedBodyBytes {
+		return body
+	}
+	return body[:maxLoggedBodyBytes] + "...[truncated]"
+}
+
+// redactHeaders masks credentials and session headers before logging.
+func redactHeaders(h map[string][]string) map[string][]string {
+	redacted := make(map[string][]string, len(h))
+	for k, v := range h {
+		switch http.CanonicalHeaderKey(k) {
+		case "Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie", "X-Api-Key":
+			redacted[k] = []string{"[REDACTED]"}
+		default:
+			redacted[k] = v
+		}
+	}
+	return redacted
 }
 
 func extractResponseBody(res *http.Response) string {

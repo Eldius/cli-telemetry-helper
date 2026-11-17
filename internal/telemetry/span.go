@@ -21,7 +21,7 @@ func PersistentPreRunE(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
 	if tracer := otel.GetTracerProvider(); tracer != nil {
-		tracer := otel.GetTracerProvider().Tracer("main")
+		tracer := otel.GetTracerProvider().Tracer(InstrumentationName)
 		spanCtx, span := tracer.Start(ctx, cmd.Name(), trace.WithSpanKind(trace.SpanKindClient))
 		span.SetAttributes(
 			attribute.String("process.executable.name", cmd.Root().Name()),

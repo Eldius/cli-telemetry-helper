@@ -142,7 +142,7 @@ func SetupLogger(ctx context.Context, cfg Options) (func(), error) {
 		func(lp *log.LoggerProvider) {
 			otel.SetLoggerProvider(lp)
 			slog.SetDefault(otelslog.NewLogger(
-				"github.com/eldius/cli-telemetry-helper",
+				InstrumentationName,
 				otelslog.WithLoggerProvider(lp),
 				otelslog.WithSource(true),
 				otelslog.WithVersion(cfg.Service.Version),

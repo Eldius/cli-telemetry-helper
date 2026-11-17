@@ -4,8 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"os"
+	"log/slog"
 	"path/filepath"
 	"strings"
 
@@ -87,8 +86,7 @@ func InitViper(ctx context.Context, svc Service, opts ...ConfigOption) error {
 		// Find a home directory.
 		home, err := homedir.Dir()
 		if err != nil {
-			log.Println(err)
-			os.Exit(1)
+			return fmt.Errorf("finding home directory: %w", err)
 		}
 
 		for _, dir := range cfg.ConfigFileLookupDirectories {
@@ -96,7 +94,6 @@ func InitViper(ctx context.Context, svc Service, opts ...ConfigOption) error {
 		}
 		viper.AddConfigPath(filepath.Join(home, fmt.Sprintf(".%s", svc.Name)))
 		viper.AddConfigPath(filepath.Join(home))
-		viper.SetConfigType("yaml")
 		viper.SetConfigName(cfg.ConfigFileName)
 		viper.SetConfigType(cfg.ConfigFileType)
 	}
@@ -110,13 +107,9 @@ func InitViper(ctx context.Context, svc Service, opts ...ConfigOption) error {
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		log.Println("Using config file:", viper.ConfigFileUsed())
-	} else {
-		err = fmt.Errorf("%w: %w", ErrViperInitialization, err)
-		log.Printf("Could not find config file using default values: %s", err)
-
-		return err
+	if err := viper.ReadInConfig(); err != nil {
+		return fmt.Errorf("%w: %w", ErrViperInitialization, err)
 	}
+	slog.Info("Using config file", "path", viper.ConfigFileUsed())
 	return nil
 }
