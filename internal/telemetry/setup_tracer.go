@@ -17,6 +17,7 @@ import (
 var (
 	ErrTracesInitialization           = errors.New("traces initialization")
 	ErrTracesConnectionInitialization = errors.New("traces connection initialization")
+	ErrTracesConnectionShutdown       = errors.New("traces connection shutdown")
 )
 
 func SetupTracer(ctx context.Context, cfg Options) (func(), error) {
@@ -33,18 +34,18 @@ func SetupTracer(ctx context.Context, cfg Options) (func(), error) {
 	))
 
 	return func() {
-		slog.Debug("Meter exporter shutting down")
+		slog.Debug("Tracer provider shutting down")
 		if err := provider.ForceFlush(ctx); err != nil {
-			err = fmt.Errorf("%w:%w", ErrMeterConnectionShutdown, err)
-			slog.With("error", err).Warn("meter provider shutting down")
+			err = fmt.Errorf("%w:%w", ErrTracesConnectionShutdown, err)
+			slog.With("error", err).Warn("tracer provider flush failed")
 		}
 		if err := exporter.Shutdown(ctx); err != nil {
-			err = fmt.Errorf("%w:%w", ErrMeterConnectionShutdown, err)
-			slog.With("error", err).Warn("shutdown metric exporter")
+			err = fmt.Errorf("%w:%w", ErrTracesConnectionShutdown, err)
+			slog.With("error", err).Warn("trace exporter shutdown failed")
 		}
 		if err := provider.Shutdown(ctx); err != nil {
-			err = fmt.Errorf("%w:%w", ErrMeterConnectionShutdown, err)
-			slog.With("error", err).Warn("meter provider shutting down")
+			err = fmt.Errorf("%w:%w", ErrTracesConnectionShutdown, err)
+			slog.With("error", err).Warn("tracer provider shutdown failed")
 		}
 	}, nil
 

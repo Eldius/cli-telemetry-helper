@@ -56,10 +56,10 @@ func SetupMeter(ctx context.Context, cfg Options) (func(), error) {
 func newMeterExporter(_ context.Context, cfg Options) (*otlpmetricgrpc.Exporter, error) {
 	exporter, err := otlpmetricgrpc.New(context.TODO(),
 		otlpmetricgrpc.WithInsecure(), // use http & not https
-		otlpmetricgrpc.WithEndpoint(cfg.Backend.Traces.Endpoint),
+		otlpmetricgrpc.WithEndpoint(cfg.Backend.Metrics.Endpoint),
 		otlpmetricgrpc.WithCompressor(gzip.Name),
 		otlpmetricgrpc.WithTimeout(10*time.Second),
-		otlpmetricgrpc.WithHeaders(cfg.Backend.Traces.AuthHeaders),
+		otlpmetricgrpc.WithHeaders(cfg.Backend.Metrics.AuthHeaders),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w:%w", ErrMeterInitialization, err)

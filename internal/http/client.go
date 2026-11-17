@@ -8,20 +8,14 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
 )
 
 func NewHTTPClient() *http.Client {
-	var rt = http.DefaultTransport
-	if traceProvider := otel.GetTracerProvider(); traceProvider != nil {
-		return &http.Client{
-			Transport: &loggingRoundTripper{
-				proxied: otelhttp.NewTransport(http.DefaultTransport),
-			},
-		}
+	return &http.Client{
+		Transport: &loggingRoundTripper{
+			proxied: otelhttp.NewTransport(http.DefaultTransport),
+		},
 	}
-
-	return newLoggingClient(rt)
 }
 
 // loggingRoundTripper is a struct that implements the http.RoundTripper interface.
@@ -98,23 +92,6 @@ func extractResponseBody(res *http.Response) string {
 	body, _ := io.ReadAll(reader)
 	res.Body = io.NopCloser(bytes.NewBuffer(body))
 	return string(body)
-}
-
-// newLoggingClient creates a new *http.Client with the logging interceptor.
-func newLoggingClient(rt http.RoundTripper) *http.Client {
-	// If http.DefaultTransport is used, it may be shared among different clients,
-	// which can be fine. However, creating a new transport provides isolation.
-	if rt == nil {
-		rt = http.DefaultTransport
-	}
-
-	return &http.Client{
-		// Set the Transport to our custom loggingRoundTripper.
-		// We pass the original default transport to be "proxied" or wrapped.
-		Transport: &loggingRoundTripper{
-			proxied: rt,
-		},
-	}
 }
 
 func ExtractRequestBody(req *http.Request) string {

@@ -42,22 +42,22 @@ func SetupLogger(ctx context.Context, cfg Options) (func(), error) {
 	//})))
 
 	return func() {
-		slog.Debug("Meter exporter shutting down")
+		slog.Debug("Logger provider shutting down")
 		if err := exporter.ForceFlush(ctx); err != nil {
 			err = fmt.Errorf("%w:%w", ErrLoggerConnectionShutdown, err)
-			slog.With("error", err).Warn("Meter exporter shutting down")
+			slog.With("error", err).Warn("log exporter flush failed")
 		}
 		if err := provider.ForceFlush(ctx); err != nil {
 			err = fmt.Errorf("%w:%w", ErrLoggerConnectionShutdown, err)
-			slog.With("error", err).Warn("meter provider shutting down")
+			slog.With("error", err).Warn("logger provider flush failed")
 		}
 		if err := exporter.Shutdown(ctx); err != nil {
 			err = fmt.Errorf("%w:%w", ErrLoggerConnectionShutdown, err)
-			slog.With("error", err).Warn("shutdown metric exporter")
+			slog.With("error", err).Warn("log exporter shutdown failed")
 		}
 		if err := provider.Shutdown(ctx); err != nil {
-			err = fmt.Errorf("%w:%w", ErrMeterConnectionShutdown, err)
-			slog.With("error", err).Warn("meter provider shutting down")
+			err = fmt.Errorf("%w:%w", ErrLoggerConnectionShutdown, err)
+			slog.With("error", err).Warn("logger provider shutdown failed")
 		}
 	}, nil
 }
@@ -71,7 +71,7 @@ func newLoggetExporter(ctx context.Context, cfg Options) (*otlploggrpc.Exporter,
 		otlploggrpc.WithHeaders(cfg.Backend.Logs.AuthHeaders),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%w:%w", ErrMeterInitialization, err)
+		return nil, fmt.Errorf("%w:%w", ErrLoggerInitialization, err)
 	}
 
 	return exporter, nil
