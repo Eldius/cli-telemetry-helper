@@ -15,66 +15,45 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type TelemetryOptions struct {
-	Service Service  `json:"service" yaml:"service" mapstructure:"service"`
-	Backend Backends `json:"backend" yaml:"backend" mapstructure:"backend"`
-}
-
-type Backends struct {
-	Traces  Backend `json:"traces" yaml:"traces" mapstructure:"traces"`
-	Metrics Backend `json:"metrics" yaml:"metrics" mapstructure:"metrics"`
-	Logs    Backend `json:"logs" yaml:"logs" mapstructure:"logs"`
-}
-
-type Service struct {
-	Name    string `json:"name" yaml:"name" mapstructure:"name"`
-	Version string `json:"version" yaml:"version" mapstructure:"version"`
-}
-
-type Backend struct {
-	Endpoint    string            `json:"endpoint" yaml:"endpoint" mapstructure:"endpoint"`
-	AuthHeaders map[string]string `json:"auth_headers" yaml:"auth_headers" mapstructure:"auth_headers"`
-	Enabled     bool              `json:"enabled" yaml:"enabled" mapstructure:"enabled"`
-}
+type (
+	TelemetryOptions = telemetry.Options
+	Backends         = telemetry.Backends
+	Service          = telemetry.Service
+	Backend          = telemetry.Backend
+)
 
 func Setup(ctx context.Context, cfg TelemetryOptions) (ShutdowwnFunc, error) {
-
-	internalOpts := toInternalConfig(cfg)
+	backends := []struct {
+		enabled bool
+		setup   func(context.Context, telemetry.Options) (func(), error)
+	}{
+		{cfg.Backend.Traces.Enabled, telemetry.SetupTracer},
+		{cfg.Backend.Metrics.Enabled, telemetry.SetupMeter},
+		{cfg.Backend.Logs.Enabled, telemetry.SetupLogger},
+	}
 
 	var shutdownHooks []func()
-
-	if cfg.Backend.Traces.Enabled {
-		tracerShutdown, err := telemetry.SetupTracer(ctx, internalOpts)
-		if err != nil {
-			return telemetry.EmptyFunc, err
-		}
-		shutdownHooks = append(shutdownHooks, tracerShutdown)
-	}
-	if cfg.Backend.Metrics.Enabled {
-		meterShutdowwn, err := telemetry.SetupMeter(ctx, internalOpts)
-		if err != nil {
-			return telemetry.EmptyFunc, err
-		}
-		shutdownHooks = append(shutdownHooks, meterShutdowwn)
-	}
-
-	if cfg.Backend.Logs.Enabled {
-		loggerShutdown, err := telemetry.SetupLogger(ctx, internalOpts)
-		if err != nil {
-			return telemetry.EmptyFunc, err
-		}
-		shutdownHooks = append(shutdownHooks, loggerShutdown)
-	}
-
-	return func() {
+	shutdownAll := func() {
 		var wg sync.WaitGroup
-
-		for _, shutdownHook := range shutdownHooks {
-			wg.Go(shutdownHook)
+		for _, hook := range shutdownHooks {
+			wg.Go(hook)
 		}
-
 		wg.Wait()
-	}, nil
+	}
+
+	for _, b := range backends {
+		if !b.enabled {
+			continue
+		}
+		shutdown, err := b.setup(ctx, cfg)
+		if err != nil {
+			shutdownAll() // clean up backends that were already initialized
+			return telemetry.EmptyFunc, err
+		}
+		shutdownHooks = append(shutdownHooks, shutdown)
+	}
+
+	return shutdownAll, nil
 }
 
 type ShutdowwnFunc func()
@@ -110,30 +89,4 @@ func CobraCmdExecute(ctx context.Context, rootCmd *cobra.Command) int {
 	}
 
 	return 0
-}
-
-func toInternalConfig(opts TelemetryOptions) telemetry.Options {
-	return telemetry.Options{
-		Service: telemetry.Service{
-			Name:    opts.Service.Name,
-			Version: opts.Service.Version,
-		},
-		Backend: telemetry.Backends{
-			Traces: telemetry.Backend{
-				Endpoint:    opts.Backend.Traces.Endpoint,
-				AuthHeaders: opts.Backend.Traces.AuthHeaders,
-				Enabled:     opts.Backend.Traces.Enabled,
-			},
-			Metrics: telemetry.Backend{
-				Endpoint:    opts.Backend.Metrics.Endpoint,
-				AuthHeaders: opts.Backend.Metrics.AuthHeaders,
-				Enabled:     opts.Backend.Metrics.Enabled,
-			},
-			Logs: telemetry.Backend{
-				Endpoint:    opts.Backend.Logs.Endpoint,
-				AuthHeaders: opts.Backend.Logs.AuthHeaders,
-				Enabled:     opts.Backend.Logs.Enabled,
-			},
-		},
-	}
 }
