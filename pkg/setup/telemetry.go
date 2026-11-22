@@ -74,7 +74,7 @@ type ShutdownFunc func()
 // CobraCmdExecute runs rootCmd wrapped in a root span and returns the
 // process exit code. It never calls os.Exit, so the caller can flush
 // telemetry before terminating.
-func CobraCmdExecute(ctx context.Context, rootCmd *cobra.Command) int {
+func CobraCmdExecute(ctx context.Context, rootCmd *cobra.Command) error {
 	tracer := otel.GetTracerProvider().Tracer(telemetry.InstrumentationName)
 	execName := filepath.Base(os.Args[0])
 	pid := os.Getpid()
@@ -97,8 +97,8 @@ func CobraCmdExecute(ctx context.Context, rootCmd *cobra.Command) int {
 		span.SetStatus(codes.Error, err.Error())
 		span.SetAttributes(attribute.Int("process.exit.code", 1))
 		span.SetAttributes(attribute.String("error.type", "1"))
-		return 1
+		return err
 	}
 
-	return 0
+	return nil
 }
