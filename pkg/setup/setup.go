@@ -5,18 +5,21 @@ package setup
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 
 	"github.com/eldius/cli-telemetry-helper/internal/telemetry"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
+// expandEnvHook expands ${VAR} references in every string being decoded,
+// regardless of the target type, so non-string fields (e.g. an int port set
+// as "${PORT}") are expanded before weak type conversion.
 func expandEnvHook() mapstructure.DecodeHookFunc {
-	return func(f reflect.Type, t reflect.Type, data any) (any, error) {
-		if f.Kind() == reflect.String && t.Kind() == reflect.String {
+	return func(f reflect.Type, _ reflect.Type, data any) (any, error) {
+		if f.Kind() == reflect.String {
 			return os.ExpandEnv(data.(string)), nil
 		}
 		return data, nil
@@ -28,15 +31,15 @@ func expandEnvHook() mapstructure.DecodeHookFunc {
 // ${ENV_VAR} references in string values), sets up the enabled OTel
 // providers, and invokes m. Providers are flushed and shut down after m
 // returns; any initialization failure aborts before m runs.
-func MainWrapper(ctx context.Context, svc Service, m func() error, opts ...ConfigOption) error {
+func MainWrapper(ctx context.Context, svc Service, m func(ctx context.Context) error, opts ...ConfigOption) error {
 
 	if err := InitViper(ctx, svc, opts...); err != nil {
 		return err
 	}
 
 	var backends Backends
-	if err := viper.UnmarshalKey("telemetry.backends", &backends, viper.DecodeHook(expandEnvHook())); err != nil {
-		return err
+	if err := UnmarshalKey("telemetry.backends", &backends); err != nil {
+		slog.With("error", err).Warn("failed to unmarshal telemetry backends")
 	}
 
 	cfg := TelemetryOptions{
@@ -50,7 +53,7 @@ func MainWrapper(ctx context.Context, svc Service, m func() error, opts ...Confi
 	}
 	defer shutdown()
 
-	return m()
+	return m(ctx)
 }
 
 // PersistentPreRunE is a cobra hook that starts a span named after the

@@ -123,7 +123,8 @@ func InitViper(ctx context.Context, svc Service, opts ...ConfigOption) error {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		return fmt.Errorf("%w: %w", ErrViperInitialization, err)
+		slog.With("err", err).Info("using default configs")
+		return nil
 	}
 	slog.Info("Using config file", "path", viper.ConfigFileUsed())
 	return nil
