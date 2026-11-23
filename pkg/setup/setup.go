@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/eldius/cli-telemetry-helper/internal/telemetry"
@@ -30,11 +31,39 @@ func expandEnvHook() mapstructure.DecodeHookFunc {
 // function: it runs InitViper, unmarshals "telemetry.backends" (expanding
 // ${ENV_VAR} references in string values), sets up the enabled OTel
 // providers, and invokes m. Providers are flushed and shut down after m
-// returns; any initialization failure aborts before m runs.
+// returns; any initialization failure aborts before m runs. An empty
+// svc.Name defaults to the executable's base name.
 func MainWrapper(ctx context.Context, svc Service, m func(ctx context.Context) error, opts ...ConfigOption) error {
+	svc = resolveServiceName(svc, "")
 
-	if err := InitViper(ctx, svc, opts...); err != nil {
+	shutdown, err := initConfigAndTelemetry(ctx, svc, opts...)
+	if err != nil {
 		return err
+	}
+	defer shutdown()
+
+	return m(ctx)
+}
+
+// resolveServiceName fills an empty service name with cmdName, falling back
+// to the base name of the process executable.
+func resolveServiceName(svc Service, cmdName string) Service {
+	if svc.Name == "" {
+		svc.Name = cmdName
+	}
+	if svc.Name == "" {
+		svc.Name = filepath.Base(os.Args[0])
+	}
+	return svc
+}
+
+// initConfigAndTelemetry is the setup shared by MainWrapper and Run: it
+// initializes viper, unmarshals "telemetry.backends" with ${VAR} expansion,
+// and sets up the enabled OTel providers. The returned shutdown func flushes
+// and shuts down the providers.
+func initConfigAndTelemetry(ctx context.Context, svc Service, opts ...ConfigOption) (ShutdownFunc, error) {
+	if err := InitViper(ctx, svc, opts...); err != nil {
+		return nil, err
 	}
 
 	var backends Backends
@@ -49,11 +78,9 @@ func MainWrapper(ctx context.Context, svc Service, m func(ctx context.Context) e
 
 	shutdown, err := Setup(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("setup telemetry: %w", err)
+		return nil, fmt.Errorf("setup telemetry: %w", err)
 	}
-	defer shutdown()
-
-	return m(ctx)
+	return shutdown, nil
 }
 
 // PersistentPreRunE is a cobra hook that starts a span named after the

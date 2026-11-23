@@ -13,9 +13,9 @@ go get github.com/eldius/cli-telemetry-helper
 
 ## Quick start
 
-Wire your `main` through `MainWrapper` (config + telemetry setup, flush on
-return), run your root command with `CobraCmdExecute` (root span, never calls
-`os.Exit`), and attach the span hooks to your root command:
+`setup.Run` does everything: loads config, sets up telemetry, attaches the
+per-command span hooks, runs the root command inside a root span, flushes,
+and returns the process exit code:
 
 ```go
 package main
@@ -28,6 +28,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func main() {
+	rootCmd := &cobra.Command{
+		Use: "my-cli", // also the default service name
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Context() // carries the command span
+			return nil
+		},
+	}
+
+	os.Exit(setup.Run(context.Background(), setup.Service{Version: "0.1.0"}, rootCmd,
+		setup.WithConfigFileName("config"),
+		setup.WithConfigFileType("yaml"),
+	))
+}
+```
+
+Any `PersistentPreRun(E)`/`PersistentPostRun(E)` hooks you set on the root
+command are preserved (chained around the span hooks) — don't assign the
+package's span hooks yourself when using `Run`.
+
+### Manual control
+
+For more control, compose the pieces yourself: `MainWrapper` (config +
+telemetry setup, flush on return) around `CobraCmdExecute` (root span, never
+calls `os.Exit`), attaching the span hooks to your root command:
+
+```go
 func main() {
 	svc := setup.Service{Name: "my-cli", Version: "0.1.0"}
 
@@ -53,6 +80,9 @@ func main() {
 	}
 }
 ```
+
+In both entrypoints, an empty `Service.Name` defaults to the command name
+(`Run`) or the executable's base name.
 
 `InitViper` options: `WithConfigFile` (explicit path), `WithConfigFileName` /
 `WithConfigFileType`, `WithConfigFileLookupDirectories`,
@@ -131,10 +161,13 @@ counter.Add(ctx, 1)
 
 ## Exit codes and flushing
 
+`Run` flushes telemetry before returning its exit code, so
+`os.Exit(setup.Run(...))` never loses buffered data.
+
 `CobraCmdExecute` returns an error instead of calling `os.Exit` so buffered
 telemetry can be flushed first. If you call `Setup` directly instead of
-`MainWrapper`, always invoke the returned shutdown function before exiting or
-buffered spans/metrics/logs are lost:
+`MainWrapper`/`Run`, always invoke the returned shutdown function before
+exiting or buffered spans/metrics/logs are lost:
 
 ```go
 shutdown, err := setup.Setup(ctx, cfg)

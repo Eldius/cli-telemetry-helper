@@ -19,12 +19,13 @@ go build ./... && go vet ./...
 ## Architecture
 
 - `pkg/` is the public API; each package is a thin wrapper delegating to `internal/`.
-  - `pkg/setup` — entrypoint: `InitViper` (config), `Setup` (tracer+meter+logger),
-    `MainWrapper` (does both around a `main` func), `CobraCmdExecute` (runs a root
-    cobra command inside a root span), and config getters (`Get`, `GetString`,
-    `GetBool`, `GetInt`, `GetInt64`, `GetFloat64`, `GetDuration`, `GetStringSlice`,
-    `GetStringMapString`, `UnmarshalKey`) that expand `${VAR}` env references —
-    the only read path that does.
+  - `pkg/setup` — entrypoints: `Run` (one-call: config+telemetry+hooks+execute,
+    returns an exit code after flushing; the usual `main` is
+    `os.Exit(setup.Run(...))`), `MainWrapper` + `CobraCmdExecute` (the same
+    steps composable by hand), `InitViper`, `Setup`, and config getters
+    (`Get`, `GetString`, `GetBool`, `GetInt`, `GetInt64`, `GetFloat64`,
+    `GetDuration`, `GetStringSlice`, `GetStringMapString`, `UnmarshalKey`)
+    that expand `${VAR}` env references — the only read path that does.
   - `pkg/telemetry` — span error helpers, counter constructor.
   - `pkg/http`, `pkg/db` — pre-instrumented `http.Client` (otelhttp) and
     `sqlx`/`sql` DBs (otelsql).
@@ -53,7 +54,15 @@ go build ./... && go vet ./...
   `viper.Get*` / `viper.UnmarshalKey` calls do not expand.
 - `CobraCmdExecute` never calls `os.Exit` (it returns an error) so the caller
   can run the shutdown func from `Setup` first; skipping it loses buffered
-  spans/metrics/logs (batch exporters). `MainWrapper` defers shutdown itself.
+  spans/metrics/logs (batch exporters). `Run` and `MainWrapper` handle this
+  themselves.
+- `Run` auto-attaches the span hooks, chaining any `PersistentPreRun(E)`/
+  `PersistentPostRun(E)` already on the command — assigning
+  `setup.PersistentPreRunE` manually on a command passed to `Run` double-starts
+  spans.
+- Empty `Service.Name` defaults to the command name (`Run`) or executable
+  basename (`Run`/`MainWrapper`); only `InitViper` called directly still
+  returns `ErrEmptyAppName`.
 - `getDefaultResources` (internal/telemetry/span.go) caches the resource in a
   package global — the service name/version from the first `Setup` call wins for
   the process lifetime.
