@@ -7,10 +7,11 @@ executable in this repo — it is consumed by other projects.
 ## Verify changes
 
 ```sh
-go build ./... && go vet ./...
+go build ./... && go vet ./... && go test ./...
 ```
 
-- No tests exist (`*_test.go` count is 0); build + vet is the core feedback loop.
+- Tests live only in `pkg/setup` (the package with the logic); `make test` runs
+  the same suite with `-cover`.
 - `make lint` (golangci-lint, no config file in repo → default linters) also passes.
 - `make vulncheck` runs `go tool govulncheck` (pinned via go.mod's `tool` directive).
 - `make release` runs `git tag` + `git push --tags` with an auto-bumped patch
@@ -36,6 +37,13 @@ go build ./... && go vet ./...
   each with `endpoint`, `enabled`, `auth_headers`.
 
 ## Gotchas
+
+- Test conventions (`pkg/setup`): reset the viper singleton between cases
+  (`resetViper` helper — all config functions use the global viper), and keep
+  tests hermetic with `missingConfigOpts` — otherwise a config file in the
+  developer's real home directory could enable OTLP exporters. No test enables
+  a real backend; `Setup` is only covered with all backends disabled (there is
+  no collector to integrate against).
 
 - `Backend.Enabled` gates each signal, but only in `pkg/setup.Setup` —
   `internal/telemetry`'s `SetupTracer`/`SetupMeter`/`SetupLogger` don't check
